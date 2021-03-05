@@ -1,11 +1,14 @@
 import sublime
 import sublime_plugin
 import os
-import time
+from datetime import datetime
 
 time_format = "%H:%M"
-delimiter = '$'
-timestamp_format = "{0} {1} ".format(time_format, delimiter)
+project_delimiter = '$'
+task_delimiter = '-'
+description_delimiter = ':'
+timestamp_format = "{0} {1} ".format(time_format, project_delimiter)
+levels = 3
 check_in = "check in --"
 check_out = "-- check out --"
 
@@ -15,29 +18,29 @@ class CreateTimelogCommand(sublime_plugin.WindowCommand):
     filename_format = home + "/%Y-%m-%d.timelog"
 
     def run(self):
-        filename = time.strftime(self.filename_format)
+        filename = datetime.strftime(self.filename_format)
         with open(filename, "a") as f:
-            top_line = "{0}\n{1}".format(check_in, time.strftime(timestamp_format))
+            top_line = "{0}\n{1}".format(check_in, datetime.strftime(timestamp_format))
             f.write(top_line)
         self.window.open_file(filename)
 
 
 class StartTimelogLineCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-        self.view.insert("\n" + time.strftime(self.time_format))
+        self.view.insert("\n" + datetime.strftime(self.time_format))
 
 
 class EndTimelogLineCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-        split_line = self.view.substr(self.view.line(self.view.sel()[0])).split(delimiter)
-        start_time = split_line[0].strip()
+        region = self.view.line(self.view.sel()[0])
+        start_time = self.view.substr(region).split(project_delimiter)[0].strip()
+        # if the time format doesn't match the specified one then don't parse this line
         try:
-            time.strptime(start_time, time_format)
+            datetime.strptime(start_time, time_format)
         except ValueError:
             return
-        end_time = time.strftime(time_format)
+        end_time = datetime.strftime(time_format)
         timelog_entry = "{0} -- {1}".format(start_time, end_time)
-        region = self.view.line(self.view.sel()[0])
         region.b = region.a + len(time_format)
         self.view.replace(edit, region, timelog_entry)
 
@@ -47,19 +50,53 @@ class ParseTimelogCommand(sublime_plugin.WindowCommand):
         window_vars = self.window.extract_variables()
         extension = window_vars.get('file_extension')
         active_view = self.window.active_view()
-        # if extension is "timelog":
-        with open(active_view.file_name()) as f:
-            old_timestamp = ""
-            for line in f:
-                split_line = line.split(delimiter)
-                print(split_line[0])
-                try:
+        if extension != "timelog":
+            print(extension)
+            return
+        with open(active_view.file_name(), 'a') as f:
+            projects = self.get_time_dict(f)
+            summary = self.get_summary(projects)
+            f.write(summary)
 
-                    new_timestamp = time.strptime(split_line[0].strip(), time_format)
-                    print(new_timestamp)
+    def get_time_dict(self, f):
+        projects = {}
+        for line in f:
+            project, task, description = "none", "none", "none"
+            split_line = line.split(project_delimiter)
+            times = split_line[0].split("--")
+            if len(split_line) > 1:
+                if description_delimiter in split_line[1]:
+                    description = split_line[1].split(description_delimiter)[1].strip()
+                    if task_delimiter not in split_line[1]:
+                        project = split_line[1].split(description_delimiter)[0].strip()
+                if task_delimiter in split_line[1]:
+                    project = split_line[1].split(task_delimiter)[0].strip()
+                    task = split_line[1].split(task_delimiter)[1].strip()
+                    if description_delimiter in split_line[1]:
+                        task = task.split(description_delimiter)[0].strip()
+                if task_delimiter not in split_line[1] and description_delimiter not in split_line[1]:
+                    description = split_line[1].strip()
+            try:
+                start_time = datetime.strptime(times[0].strip(), time_format)
+                end_time = datetime.strptime(times[1].strip(), time_format)
+                if project not in projects:
+                    projects[project] = {task: {description: end_time - start_time}}
+                elif task not in projects[project]:
+                    projects[project][task] = {description: end_time - start_time}
+                elif description not in projects[project][task]:
+                    projects[project][task][description] = end_time - start_time
+                else:
+                    projects[project][task][description] += end_time - start_time
+                print(projects)
+            except ValueError:
+                pass
+        return projects
 
-                except ValueError:
-                    if line is check_out:
-                        break
-                    else:
-                        pass
+    def get_summary(self, projects):
+        for project in projects:
+            print(project.keys())
+            for task in project:
+                for description in task:
+                    pass
+        return "hello"
+
