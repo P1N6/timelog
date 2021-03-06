@@ -1,7 +1,7 @@
 import sublime
 import sublime_plugin
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 time_format = "%H:%M"
 project_delimiter = '$'
@@ -27,7 +27,7 @@ class CreateTimelogCommand(sublime_plugin.WindowCommand):
 
 class StartTimelogLineCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-        self.view.insert("\n" + datetime.strftime(self.time_format))
+        self.view.insert("\n" + datetime.strftime(time_format))
 
 
 class EndTimelogLineCommand(sublime_plugin.TextCommand):
@@ -49,54 +49,54 @@ class ParseTimelogCommand(sublime_plugin.WindowCommand):
     def run(self):
         window_vars = self.window.extract_variables()
         extension = window_vars.get('file_extension')
-        active_view = self.window.active_view()
         if extension != "timelog":
             print(extension)
             return
-        with open(active_view.file_name(), 'a') as f:
-            projects = self.get_time_dict(f)
-            summary = self.get_summary(projects)
-            f.write(summary)
+        filename = self.window.active_view().file_name()
+        projects = self.get_time_dict(filename)
+        summary = self.get_summary(projects)
 
-    def get_time_dict(self, f):
+    def get_time_dict(self, filename):
         projects = {}
-        for line in f:
-            project, task, description = "none", "none", "none"
-            split_line = line.split(project_delimiter)
-            times = split_line[0].split("--")
-            if len(split_line) > 1:
-                if description_delimiter in split_line[1]:
-                    description = split_line[1].split(description_delimiter)[1].strip()
-                    if task_delimiter not in split_line[1]:
-                        project = split_line[1].split(description_delimiter)[0].strip()
-                if task_delimiter in split_line[1]:
-                    project = split_line[1].split(task_delimiter)[0].strip()
-                    task = split_line[1].split(task_delimiter)[1].strip()
+        with open(filename, 'r') as f:
+            for line in f:
+                project, task, description = "none", "none", "none"
+                split_line = line.split(project_delimiter)
+                times = split_line[0].split("--")
+                if len(split_line) > 1:
                     if description_delimiter in split_line[1]:
-                        task = task.split(description_delimiter)[0].strip()
-                if task_delimiter not in split_line[1] and description_delimiter not in split_line[1]:
-                    description = split_line[1].strip()
-            try:
-                start_time = datetime.strptime(times[0].strip(), time_format)
-                end_time = datetime.strptime(times[1].strip(), time_format)
-                if project not in projects:
-                    projects[project] = {task: {description: end_time - start_time}}
-                elif task not in projects[project]:
-                    projects[project][task] = {description: end_time - start_time}
-                elif description not in projects[project][task]:
-                    projects[project][task][description] = end_time - start_time
-                else:
-                    projects[project][task][description] += end_time - start_time
-                print(projects)
-            except ValueError:
-                pass
+                        description = split_line[1].split(description_delimiter)[1].strip()
+                        if task_delimiter not in split_line[1]:
+                            project = split_line[1].split(description_delimiter)[0].strip()
+                    if task_delimiter in split_line[1]:
+                        project = split_line[1].split(task_delimiter)[0].strip()
+                        task = split_line[1].split(task_delimiter)[1].strip()
+                        if description_delimiter in split_line[1]:
+                            task = task.split(description_delimiter)[0].strip()
+                    if task_delimiter not in split_line[1] and description_delimiter not in split_line[1]:
+                        description = split_line[1].strip()
+                try:
+                    start_time = datetime.strptime(times[0].strip(), time_format)
+                    end_time = datetime.strptime(times[1].strip(), time_format)
+                    delta = end_time - start_time
+                    if project not in projects:
+                        projects[project] = {task: {description: delta}}
+                    elif task not in projects[project]:
+                        projects[project][task] = {description: delta}
+                    elif description not in projects[project][task]:
+                        projects[project][task][description] = delta
+                    else:
+                        projects[project][task][description] += delta
+                except ValueError:
+                    pass
         return projects
 
     def get_summary(self, projects):
-        for project in projects:
-            print(project.keys())
-            for task in project:
-                for description in task:
+        for project, tasks in projects.items():
+            print(project)
+            for task, descriptions in tasks.items():
+                print("\t" + task)
+                for description, time in descriptions.items():
+                    print("\t\t" + description + "\t" + str(time))
                     pass
         return "hello"
-
