@@ -1,0 +1,12 @@
+[
+{
+    "id" : "tlCreateTimelog",
+    "caption" : "Timelog: Create New Timelog",
+    "command" : "create_timelog"
+},
+{
+    "id" : "tlParseTimelog",
+    "caption" : "Timelog: Summarise Timelog",
+    "command" : "parse_timelog"
+}
+]
