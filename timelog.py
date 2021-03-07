@@ -1,6 +1,7 @@
 import sublime
 import sublime_plugin
 import os
+import re
 import datetime as dt
 
 time_format = "%H:%M"
@@ -16,16 +17,23 @@ class CreateTimelogCommand(sublime_plugin.WindowCommand):
     filename_format = home + "/%Y-%m-%d.timelog"
 
     def run(self):
-        filename = dt.datetime.strftime(self.filename_format)
+        filename = dt.datetime.strftime(dt.datetime.now(), self.filename_format)
         with open(filename, "a") as f:
-            top_line = "{0}".format(dt.datetime.strftime(timestamp_format))
+            top_line = "{0}".format(dt.datetime.strftime(dt.datetime.now(), timestamp_format))
             f.write(top_line)
         self.window.open_file(filename)
 
 
 class StartTimelogLineCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-        self.view.insert("\n" + dt.datetime.strftime(time_format))
+        EndTimelogLineCommand.run(self, edit)
+        region = self.view.line(self.view.sel()[0])
+        line = self.view.substr(region)
+        newline = dt.datetime.strftime(dt.datetime.now(), timestamp_format)
+        print(line)
+        if len(line) > 1:
+            newline = "\n" + newline
+        self.view.insert(edit, region.b, newline)
 
 
 class EndTimelogLineCommand(sublime_plugin.TextCommand):
@@ -37,7 +45,7 @@ class EndTimelogLineCommand(sublime_plugin.TextCommand):
             dt.datetime.strptime(start_time, time_format)
         except ValueError:
             return
-        end_time = dt.datetime.strftime(time_format)
+        end_time = dt.datetime.strftime(dt.datetime.now(), time_format)
         timelog_entry = "{0} -- {1}".format(start_time, end_time)
         region.b = region.a + len(time_format)
         self.view.replace(edit, region, timelog_entry)
