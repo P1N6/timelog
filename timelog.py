@@ -8,6 +8,7 @@ time_format = "%H:%M"
 project_delimiter = '$'
 task_delimiter = '-'
 description_delimiter = ':'
+summary_heading = "--- Summary ---"
 timestamp_format = "{0} {1} ".format(time_format, project_delimiter)
 levels = 3
 
@@ -58,11 +59,28 @@ class ParseTimelogCommand(sublime_plugin.TextCommand):
         if extension != "timelog":
             return
         filename = self.view.file_name()
-        print(filename)
         projects = self.get_time_dict(filename)
         summary = self.get_summary(projects)
+        self.remove_trailing_newlines(edit)
         for s in self.view.sel():
-            self.view.insert(edit, s.b, summary)
+            r = self.view.find(summary_heading, 0)
+            if r.a is -1:
+                self.view.insert(edit, self.view.size(), summary)
+            else:
+                r.b = self.view.size()
+                print(self.view.find(summary_heading, 0))
+                self.view.replace(edit, r, summary)
+
+    def remove_trailing_newlines(self, edit):
+        # this function shamelessy stolen from the Sublime Single Trailing Newline package
+        # https://packagecontrol.io/packages/SingleTrailingNewLine
+        # https://github.com/mattst/sublime-single-trailing-new-line
+        last_sig_char = self.view.size() - 1
+        while last_sig_char >= 0 and self.view.substr(last_sig_char).isspace():
+            last_sig_char -= 1
+        erase_region = sublime.Region(last_sig_char + 1, self.view.size())
+        self.view.erase(edit, erase_region)
+        self.view.insert(edit, self.view.size(), "\n\n")
 
     def get_time_dict(self, filename):
         projects = {}
@@ -71,18 +89,19 @@ class ParseTimelogCommand(sublime_plugin.TextCommand):
                 project, task, description = "none", "none", "none"
                 split_line = line.split(project_delimiter)
                 times = split_line[0].split("--")
-                if len(split_line) > 1:
+                if len(times) <= 1:
+                    continue
+                if description_delimiter in split_line[1]:
+                    description = split_line[1].split(description_delimiter)[1].strip()
+                    if task_delimiter not in split_line[1]:
+                        project = split_line[1].split(description_delimiter)[0].strip()
+                if task_delimiter in split_line[1]:
+                    project = split_line[1].split(task_delimiter)[0].strip()
+                    task = split_line[1].split(task_delimiter)[1].strip()
                     if description_delimiter in split_line[1]:
-                        description = split_line[1].split(description_delimiter)[1].strip()
-                        if task_delimiter not in split_line[1]:
-                            project = split_line[1].split(description_delimiter)[0].strip()
-                    if task_delimiter in split_line[1]:
-                        project = split_line[1].split(task_delimiter)[0].strip()
-                        task = split_line[1].split(task_delimiter)[1].strip()
-                        if description_delimiter in split_line[1]:
-                            task = task.split(description_delimiter)[0].strip()
-                    if task_delimiter not in split_line[1] and description_delimiter not in split_line[1]:
-                        description = split_line[1].strip()
+                        task = task.split(description_delimiter)[0].strip()
+                if task_delimiter not in split_line[1] and description_delimiter not in split_line[1]:
+                    description = split_line[1].strip()
                 try:
                     start_time = dt.datetime.strptime(times[0].strip(), time_format)
                     end_time = dt.datetime.strptime(times[1].strip(), time_format)
@@ -96,11 +115,11 @@ class ParseTimelogCommand(sublime_plugin.TextCommand):
                     else:
                         projects[project][task][description] += delta
                 except ValueError:
-                    pass
+                    continue
         return projects
 
     def get_summary(self, projects):
-        summary = ""
+        summary = summary_heading + "\n"
         summary_total = dt.timedelta()
         for project, tasks in projects.items():
             print(project)
