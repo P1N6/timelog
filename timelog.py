@@ -122,7 +122,6 @@ class ParseTimelogCommand(sublime_plugin.TextCommand):
         summary = summary_heading + "\n"
         summary_total = dt.timedelta()
         for project, tasks in projects.items():
-            print(project)
             project_breakdown = ""
             project_total = dt.timedelta()
             for task, descriptions in tasks.items():
@@ -138,5 +137,4 @@ class ParseTimelogCommand(sublime_plugin.TextCommand):
             summary += project_breakdown
             summary_total += project_total
         summary += "Total Today: {0}".format(summary_total)
-        print(summary)
         return summary

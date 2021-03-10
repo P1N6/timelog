@@ -1,3 +1,4 @@
 [
-    {"keys": ["super+enter"], "command": "start_timelog_line", "context": [{"key": "selector", "operator": "equal", "operand": "text.timelog"}]}
+    {"keys": ["super+enter"], "command": "start_timelog_line", "context": [{"key": "selector", "operator": "equal", "operand": "text.timelog"}]},
+    {"keys": ["super+shift+enter"], "command": "parse_timelog", "context": [{"key": "selector", "operator": "equal", "operand": "text.timelog"}]}
 ]
