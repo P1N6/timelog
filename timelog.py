@@ -10,15 +10,21 @@ task_delimiter = '-'
 description_delimiter = ':'
 summary_heading = "--- Summary ---"
 timestamp_format = "{0} {1} ".format(time_format, project_delimiter)
+filepath = "~/timelogs"
+file_format = "%Y-%m-%d"
 levels = 3
 
 
 class CreateTimelogCommand(sublime_plugin.WindowCommand):
-    home = os.path.expanduser("~")
-    filename_format = home + "/%Y-%m-%d.timelog"
 
     def run(self):
-        filename = dt.datetime.strftime(dt.datetime.now(), self.filename_format)
+        # expand the path to timelogs and create it if it doesn't already exist
+        fullpath = os.path.expanduser(filepath) if '~' in filepath else filepath
+        filename_format = "{0}/{1}.timelog".format(fullpath, file_format)
+        if not os.path.exists(fullpath):
+            os.mkdir(fullpath)
+        # create the new timelog, insert the first line and open it
+        filename = dt.datetime.strftime(dt.datetime.now(), filename_format)
         with open(filename, "a") as f:
             top_line = "{0}".format(dt.datetime.strftime(dt.datetime.now(), timestamp_format))
             f.write(top_line)
